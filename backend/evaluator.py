@@ -25,8 +25,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
-from scipy.stats import pearsonr
 
 from backend.simulation_runner import DayResult
 
@@ -93,12 +91,12 @@ def evaluate(
     days_arr = np.array(days, dtype=float)
 
     follower_raw = np.array([r.follower_avg for r in results])
-    follower_smoothed = gaussian_filter1d(follower_raw, sigma=1.5)
+    follower_smoothed = _gaussian_filter1d(follower_raw, sigma=1.5)
 
     real_arr = np.array([real_curve.get(d, float("nan")) for d in days])
 
     # Pearson + DTW
-    corr, p_val = pearsonr(follower_smoothed, real_arr)
+    corr, p_val = _pearsonr(follower_smoothed, real_arr)
     dtw_dist = _dtw_distance(follower_smoothed, real_arr)
     min_sim  = float(np.min(follower_smoothed))
 
@@ -139,6 +137,32 @@ def evaluate(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+def _gaussian_filter1d(x: np.ndarray, sigma: float) -> np.ndarray:
+    """Pure numpy 1-D Gaussian smoothing (replaces scipy.ndimage.gaussian_filter1d)."""
+    radius = int(4 * sigma + 0.5)
+    k = np.arange(-radius, radius + 1, dtype=float)
+    kernel = np.exp(-0.5 * (k / sigma) ** 2)
+    kernel /= kernel.sum()
+    padded = np.pad(x, radius, mode="edge")
+    return np.convolve(padded, kernel, mode="valid")
+
+
+def _pearsonr(x: np.ndarray, y: np.ndarray):
+    """Pearson r and approximate two-tailed p-value (replaces scipy.stats.pearsonr)."""
+    xd = x - x.mean()
+    yd = y - y.mean()
+    denom = math.sqrt(float(np.dot(xd, xd) * np.dot(yd, yd)))
+    r = float(np.dot(xd, yd) / denom) if denom > 0 else 0.0
+    r = max(-1.0, min(1.0, r))
+    n = len(x)
+    if abs(r) >= 1.0 or n <= 2:
+        return r, 0.0
+    t_stat = r * math.sqrt((n - 2) / (1.0 - r ** 2))
+    # Two-tailed p-value approximation via complementary error function
+    p = math.erfc(abs(t_stat) / math.sqrt(2.0))
+    return r, float(p)
+
 
 def _dtw_distance(s: np.ndarray, t: np.ndarray) -> float:
     """DTW distance — exact implementation from phase_8/simulate_jj_e21_m3b.py."""

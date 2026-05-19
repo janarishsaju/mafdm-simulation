@@ -32,7 +32,6 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.ndimage import gaussian_filter1d
 
 from backend.agents import EpisodicMemory, FollowerAgent, LeaderAgent
 
@@ -339,5 +338,11 @@ def _build_real_curve(
     )
     merged = all_days.merge(daily, on="day", how="left")
     merged["interp"] = merged["real_avg"].interpolate(method="linear", limit_direction="both")
-    smoothed = gaussian_filter1d(merged["interp"].values, sigma=1.5)
+    raw = merged["interp"].values
+    sigma = 1.5
+    radius = int(4 * sigma + 0.5)
+    k = np.arange(-radius, radius + 1, dtype=float)
+    kernel = np.exp(-0.5 * (k / sigma) ** 2)
+    kernel /= kernel.sum()
+    smoothed = np.convolve(np.pad(raw, radius, mode="edge"), kernel, mode="valid")
     return {int(d): float(s) for d, s in zip(days, smoothed)}
