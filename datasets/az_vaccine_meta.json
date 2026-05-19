@@ -1,0 +1,39 @@
+{
+  "id": "az_vaccine",
+  "name": "AstraZeneca EU Vaccine Pause (March-April 2021)",
+  "event_date_label": "Day 0 = March 15, 2021 (EU-wide suspension: Germany, France, Italy)",
+  "csv_file": "az_vaccine_posts.csv",
+  "sim_start": -5,
+  "sim_end": 41,
+  "resolution_anchor_day": -999,
+  "anchor_days": {
+    "0": "BREAKING: Germany, France, and Italy have suspended use of the AstraZeneca COVID-19 vaccine, joining Denmark and Austria. More than 20 countries have now paused AstraZeneca vaccinations while European regulators investigate reports of rare blood clots. Over 5 million doses are on hold. The decision is causing major disruption to Europe's vaccination rollout. Health ministers cite the precautionary principle — authorities stress NO CONFIRMED causal link has been established. Public confidence in AstraZeneca is falling sharply.",
+    "3": "UPDATE: The European Medicines Agency has issued its assessment — AstraZeneca's overall benefits outweigh the risks for most age groups. However, EMA acknowledged the rare blood clotting events require continued monitoring. The investigation into the biological mechanism is ONGOING. Countries are resuming cautiously, with several APPLYING AGE RESTRICTIONS — limiting AstraZeneca to older adults due to higher relative risk in younger people. Public concern remains significant. This is NOT an all-clear: regulators urge ongoing vigilance.",
+    "23": "ALERT: UK health advisors (JCVI) recommend that adults UNDER 30 should receive an alternative to the AstraZeneca vaccine where possible, citing the risk of rare but potentially fatal blood clots — a condition called VITT. This follows mounting scientific evidence confirming a causal link between AstraZeneca and clotting events in younger adults. Germany, France, Canada are extending similar age-based restrictions. The AstraZeneca vaccine programme continues for older age groups, but confidence among younger populations is falling further."
+  },
+  "anchor_memories": {
+    "0": "ANCHOR Day 0: Germany, France, Italy suspend AstraZeneca. 20+ countries pause over blood clot reports. 5M doses on hold. Causal link NOT yet confirmed — precautionary measure. Confidence falling.",
+    "3": "ANCHOR Day 3: EMA assessment — benefits outweigh risks overall, but monitoring continues. Countries resuming cautiously WITH AGE RESTRICTIONS. Blood clot mechanism still under investigation. NOT a full all-clear.",
+    "23": "ANCHOR Day 23: UK JCVI recommends against AstraZeneca for under-30s. Causal link to blood clots (VITT) confirmed. Multiple countries restricting to older age groups. AstraZeneca confidence among younger adults at low point."
+  },
+  "profile_map": {
+    "expert": "a medical or public health expert",
+    "media": "a news journalist or reporter",
+    "government_statement": "a government or public health official",
+    "consumer_comment": "a member of the public commenting on the vaccine situation",
+    "comment": "a social media commentator"
+  },
+  "default_profile": "a social media commentator discussing the AstraZeneca vaccine",
+  "leader_filter": {
+    "agent_type": "opinion_leader"
+  },
+  "follower_filter": {
+    "agent_type": "opinion_follower"
+  },
+  "pre_event_phase": "neutral_pre",
+  "day_column": "days_from_incident_start",
+  "score_column": "attitude_score",
+  "type_column": "agent_type",
+  "phase_column": "phase",
+  "profile_column": "content_type"
+}

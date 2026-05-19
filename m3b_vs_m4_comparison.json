@@ -1,0 +1,30 @@
+{
+  "jj_vaccine": {
+    "mafdm_m3b": {
+      "pearson": -0.3665,
+      "p_value": 0.0426,
+      "dtw": 1.9876,
+      "elapsed_s": 371.3
+    },
+    "mafdm_m4": {
+      "pearson": 0.2018,
+      "p_value": 0.2762,
+      "dtw": 2.118,
+      "elapsed_s": 327.8
+    }
+  },
+  "az_vaccine": {
+    "mafdm_m3b": {
+      "pearson": 0.2804,
+      "p_value": 0.0563,
+      "dtw": 0.8775,
+      "elapsed_s": 267.4
+    },
+    "mafdm_m4": {
+      "pearson": 0.288,
+      "p_value": 0.0497,
+      "dtw": 3.1312,
+      "elapsed_s": 394.3
+    }
+  }
+}

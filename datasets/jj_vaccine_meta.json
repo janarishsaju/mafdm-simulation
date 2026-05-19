@@ -1,0 +1,32 @@
+{
+  "id": "jj_vaccine",
+  "name": "Johnson & Johnson Vaccine Pause (April 2021)",
+  "event_date_label": "Day 0 = April 13, 2021 (CDC/FDA pause announcement)",
+  "csv_file": "jj_vaccine_posts.csv",
+  "sim_start": -5,
+  "sim_end": 25,
+  "resolution_anchor_day": 10,
+  "anchor_days": {
+    "0": "BREAKING: The CDC and FDA have HALTED Johnson & Johnson's COVID-19 vaccine after reports of dangerous, potentially fatal blood clots in the brain. Six recipients developed cerebral venous sinus thrombosis — a rare clotting disorder — and one has died. All J&J vaccinations have been immediately paused. Millions of doses are being pulled from distribution. Health officials warn: anyone who received the J&J shot in the past few weeks should watch for symptoms and seek emergency care if they develop severe headaches.",
+    "10": "UPDATE: The CDC and FDA have LIFTED the J&J vaccine pause. After a 10-day safety review, the Advisory Committee on Immunization Practices voted 10-4 to resume vaccinations. Officials conclude the benefits of the J&J vaccine clearly outweigh the risks. The rare clotting condition affects roughly 7 per million doses — predominantly in women under 50. A warning label is being added. Doctors say: the vaccine is safe and people should get it."
+  },
+  "anchor_memories": {
+    "0": "ANCHOR Day 0: CDC/FDA halted J&J vaccine — blood clot fatality reported. Vaccinations immediately paused. Millions of doses pulled.",
+    "10": "ANCHOR Day 10: CDC/FDA lifted J&J vaccine pause — ACIP voted 10-4 to resume. Safety review concluded: benefits outweigh risks."
+  },
+  "profile_map": {
+    "expert":               "a medical or public health expert",
+    "media":                "a news journalist or reporter",
+    "government_statement": "a government or public health official",
+    "brand_statement":      "a pharmaceutical company spokesperson"
+  },
+  "default_profile": "a social media commentator",
+  "leader_filter":   {"agent_type": "opinion_leader"},
+  "follower_filter": {"agent_type": "opinion_follower"},
+  "pre_event_phase": "neutral_pre",
+  "day_column":      "days_from_incident_start",
+  "score_column":    "attitude_score",
+  "type_column":     "agent_type",
+  "phase_column":    "phase",
+  "profile_column":  "content_type"
+}
