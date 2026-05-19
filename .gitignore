@@ -14,9 +14,6 @@ frontend/.vite/
 # Keep frontend/dist/ — it's committed so Render can serve the built UI
 # !frontend/dist/
 
-# Large CSV datasets — keep meta JSON, exclude raw CSVs
-datasets/*.csv
-
 # Local results / experiment outputs (keep results/ for the pre-cached SSE CSVs)
 phase_8/
 astrazeneca/
