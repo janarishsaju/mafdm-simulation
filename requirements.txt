@@ -1,19 +1,20 @@
 # MA-FDE-LLM Simulation Platform — backend dependencies
-# Install with: pip install -r requirements.txt
+# Pinned to versions with Python 3.14 binary wheels (Render free tier uses py3.14)
 
 # Web framework
-fastapi==0.115.5
-uvicorn[standard]==0.32.1
+fastapi>=0.115.5
+uvicorn[standard]>=0.32.1
 
-# Data
-pandas==2.2.3
-numpy==1.26.4
+# Data — use latest to guarantee py3.14 wheels
+pandas>=2.2.3
+numpy>=2.1.0
+scipy>=1.15.0
 
 # LLM
-openai==1.57.2
+openai>=1.57.2
 
 # Validation
-pydantic==2.9.2
+pydantic>=2.9.2
 
 # Visualisation (chart generation)
 matplotlib>=3.10.0
