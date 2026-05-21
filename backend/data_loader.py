@@ -103,12 +103,13 @@ def list_datasets() -> List[Dict]:
             raw_anchors = meta.get("anchor_days", {})
             anchor_days = {int(k): v for k, v in raw_anchors.items()}
             result.append({
-                "id":         dataset_id,
-                "name":       meta.get("name", dataset_id),
-                "label":      meta.get("event_date_label", ""),
-                "sim_start":  meta.get("sim_start", -5),
-                "sim_end":    meta.get("sim_end",   25),
-                "anchor_days": anchor_days,
+                "id":                   dataset_id,
+                "name":                 meta.get("name", dataset_id),
+                "label":                meta.get("event_date_label", ""),
+                "sim_start":            meta.get("sim_start", -5),
+                "sim_end":              meta.get("sim_end",   25),
+                "anchor_days":          anchor_days,
+                "resolution_anchor_day": meta.get("resolution_anchor_day", None),
             })
     return result
 

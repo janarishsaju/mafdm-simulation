@@ -232,6 +232,7 @@ export default function App() {
             anchorOverrides = {anchorOverrides}
             onAnchorChange  = {setAnchorOverrides}
             disabled        = {status === "running"}
+            variantId       = {variantId}
           />
           <AlgorithmPanel
             variants         = {variants}

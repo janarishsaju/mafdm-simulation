@@ -8,13 +8,17 @@ export default function DataPanel({
   anchorOverrides,
   onAnchorChange,
   disabled,
+  variantId,
 }) {
   const [showAnchors, setShowAnchors] = useState(true);
   const selected = datasets.find((d) => d.id === selectedId);
   const anchorDays = selected?.anchor_days ?? {};
+  const resolutionDay = selected?.resolution_anchor_day ?? null;
   const sortedDays = Object.keys(anchorDays)
     .map(Number)
     .sort((a, b) => a - b);
+
+  const isRealLeaders = variantId === "real_leaders";
 
   function handleAnchorEdit(day, value) {
     onAnchorChange({ ...anchorOverrides, [String(day)]: value });
@@ -27,9 +31,21 @@ export default function DataPanel({
   }
 
   function dayLabel(day) {
+    if (day === resolutionDay) {
+      const sign = day > 0 ? `+${day}` : day === 0 ? "0" : `${day}`;
+      return `Day ${sign} — Resolution Anchor`;
+    }
     if (day === 0) return "Day 0 — Crisis Anchor";
     const sign = day > 0 ? `+${day}` : `${day}`;
     return `Day ${sign} — Anchor`;
+  }
+
+  function anchorPhaseNote(day) {
+    if (day === resolutionDay) {
+      const next = day + 1;
+      return `ε switches to recovery floor (0.50) from Day +${next} onwards`;
+    }
+    return `ε crisis floor (0.30) active from this day`;
   }
 
   return (
@@ -93,79 +109,125 @@ export default function DataPanel({
         }}
         onClick={() => setShowAnchors((s) => !s)}
       >
-        <span>Anchor Inputs ({sortedDays.length})</span>
+        <span>Anchor Days ({sortedDays.length})</span>
         {showAnchors ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
       </button>
 
       {showAnchors && sortedDays.length > 0 && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
-          {sortedDays.map((day) => {
-            const defaultText = anchorDays[day] ?? "";
-            const override    = anchorOverrides?.[String(day)];
-            const current     = override !== undefined ? override : defaultText;
-            const isEdited    = override !== undefined && override !== defaultText;
-
-            return (
-              <div key={day}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 4,
+        isRealLeaders ? (
+          /* Real Leaders: read-only timing display, no blurb editing */
+          <div style={{ marginTop: 10 }}>
+            <div style={{
+              background: "#FFF7ED",
+              border: "1px solid #FED7AA",
+              borderRadius: 7,
+              padding: "0.6rem 0.8rem",
+              fontSize: "0.76rem",
+              color: "#92400E",
+              lineHeight: 1.6,
+              marginBottom: 10,
+            }}>
+              <strong>Blurb not used as input.</strong> Only anchor day numbers
+              are used — to time the ε phase switch. No LLM reads these blurbs.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sortedDays.map((day) => (
+                <div key={day} style={{
+                  background: "#F8FAFC",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 7,
+                  padding: "0.65rem 0.9rem",
                 }}>
-                  <label style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    color: isEdited ? "var(--color-primary)" : "var(--color-text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}>
-                    {dayLabel(day)}{isEdited ? " ✎" : ""}
-                  </label>
-                  {isEdited && (
-                    <button
-                      title="Reset to default"
-                      onClick={() => handleReset(day)}
-                      disabled={disabled}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-text-muted)",
-                        padding: "2px 4px",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <RotateCcw size={12} />
-                    </button>
-                  )}
-                </div>
-                <textarea
-                  value={current}
-                  onChange={(e) => handleAnchorEdit(day, e.target.value)}
-                  disabled={disabled}
-                  rows={4}
-                  style={{
-                    width: "100%",
-                    resize: "vertical",
+                  <div style={{
                     fontSize: "0.78rem",
-                    lineHeight: 1.55,
-                    padding: "0.5rem 0.6rem",
-                    borderRadius: 6,
-                    border: isEdited
-                      ? "1.5px solid var(--color-primary)"
-                      : "1px solid var(--color-border)",
-                    background: disabled ? "#F8FAFC" : "white",
-                    color: "var(--color-text)",
-                    fontFamily: "inherit",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
+                    fontWeight: 700,
+                    color: day === resolutionDay ? "#217346" : "#C00000",
+                    marginBottom: 3,
+                  }}>
+                    {dayLabel(day)}
+                  </div>
+                  <div style={{
+                    fontSize: "0.74rem",
+                    color: "var(--color-text-muted)",
+                    fontStyle: "italic",
+                  }}>
+                    {anchorPhaseNote(day)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* All other variants: editable blurb textareas */
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
+            {sortedDays.map((day) => {
+              const defaultText = anchorDays[day] ?? "";
+              const override    = anchorOverrides?.[String(day)];
+              const current     = override !== undefined ? override : defaultText;
+              const isEdited    = override !== undefined && override !== defaultText;
+
+              return (
+                <div key={day}>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}>
+                    <label style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: isEdited ? "var(--color-primary)" : "var(--color-text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}>
+                      {dayLabel(day)}{isEdited ? " ✎" : ""}
+                    </label>
+                    {isEdited && (
+                      <button
+                        title="Reset to default"
+                        onClick={() => handleReset(day)}
+                        disabled={disabled}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--color-text-muted)",
+                          padding: "2px 4px",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <RotateCcw size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={current}
+                    onChange={(e) => handleAnchorEdit(day, e.target.value)}
+                    disabled={disabled}
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      resize: "vertical",
+                      fontSize: "0.78rem",
+                      lineHeight: 1.55,
+                      padding: "0.5rem 0.6rem",
+                      borderRadius: 6,
+                      border: isEdited
+                        ? "1.5px solid var(--color-primary)"
+                        : "1px solid var(--color-border)",
+                      background: disabled ? "#F8FAFC" : "white",
+                      color: "var(--color-text)",
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );
