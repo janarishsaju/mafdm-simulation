@@ -73,6 +73,7 @@ def evaluate(
     variant_name:   str,
     event_label:    str,
     anchor_days:    Optional[List[int]] = None,
+    variant_id:     str = "",
 ) -> EvaluationResult:
     """
     Compute metrics and build the comparison chart.
@@ -117,6 +118,7 @@ def evaluate(
         pearson           = float(corr),
         dtw               = dtw_dist,
         anchor_days       = anchor_days or [],
+        real_leaders_mode = (variant_id == "real_leaders"),
     )
 
     return EvaluationResult(
@@ -188,6 +190,7 @@ def _build_chart(
     pearson:           float,
     dtw:               float,
     anchor_days:       List[int],
+    real_leaders_mode: bool = False,
 ) -> str:
     """Build the 2-panel comparison chart and return it as a base64 PNG string."""
     sim_start = int(days_arr[0])
@@ -212,20 +215,32 @@ def _build_chart(
         ax2.axvline(d, color="#C00000" if d == anchor_days[0] else "#217346",
                     linewidth=1.2, linestyle="--", alpha=0.7, zorder=5)
 
+    # Leader curve — input signal for followers
+    leader_raw = np.array([r.leader_avg for r in results])
+    if real_leaders_mode:
+        # Real Leaders: leader line is the actual data input — make it prominent
+        ax.plot(days_arr, leader_raw, color="#1F3964", linewidth=2.2,
+                linestyle="-", alpha=0.85, zorder=3, label="Real leader scores (CSV input)")
+    else:
+        # Other variants: leader is a simulated output — show lightly
+        ax.plot(days_arr, leader_raw, color="#1F3964", linewidth=1.2,
+                linestyle=":", alpha=0.55, zorder=3, label="Simulated leader avg")
+
     # Real curve (ground truth)
     ax.plot(days_arr, real_smoothed, color="#C00000", linewidth=2.5, zorder=4,
             label="Real follower curve (ground truth)")
 
     # Simulated follower curve
+    follower_label = (
+        "Simulated follower curve  "
+        f"(Pearson={pearson:+.3f}, DTW={dtw:.3f})"
+        if real_leaders_mode else
+        f"{variant_name}  (Pearson={pearson:+.3f}, DTW={dtw:.3f})"
+    )
     ax.plot(days_arr, follower_smoothed, color="#C55A11", linewidth=2.8, zorder=5,
-            label=f"{variant_name}  (Pearson={pearson:+.3f}, DTW={dtw:.3f})")
+            label=follower_label)
     ax.fill_between(days_arr, real_smoothed, follower_smoothed,
                     alpha=0.07, color="#C55A11", zorder=2)
-
-    # Leader curve (dotted, lighter)
-    leader_raw = np.array([r.leader_avg for r in results])
-    ax.plot(days_arr, leader_raw, color="#1F3964", linewidth=1.2,
-            linestyle=":", alpha=0.6, zorder=3, label="Leader avg")
 
     # Metrics box
     ax.text(

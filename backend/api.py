@@ -203,6 +203,7 @@ async def simulate(request: SimulateRequest) -> StreamingResponse:
                             variant_name = variant_meta.name,
                             event_label  = dataset.event_label,
                             anchor_days  = sorted(dataset.anchor_days.keys()),
+                            variant_id   = request.variant_id,
                         ),
                     )
                     yield _sse("evaluation", eval_result.to_dict())
@@ -284,6 +285,7 @@ async def simulate(request: SimulateRequest) -> StreamingResponse:
                     variant_name = variant_meta.name,
                     event_label  = dataset.event_label,
                     anchor_days  = sorted(dataset.anchor_days.keys()),
+                    variant_id   = request.variant_id,
                 ),
             )
             yield _sse("evaluation", eval_result.to_dict())
