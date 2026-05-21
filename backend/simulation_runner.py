@@ -101,6 +101,9 @@ class SimulationRunner:
         Returns:
             List of DayResult, one per simulation day.
         """
+        # Give the algorithm access to dataset-level data (e.g. real leader scores)
+        algorithm.inject_dataset(dataset)
+
         # ── Unpack dataset ────────────────────────────────────────────────
         leaders:   List[LeaderAgent]   = dataset.leaders
         followers: List[FollowerAgent] = dataset.followers
@@ -214,14 +217,19 @@ class SimulationRunner:
             # ── F. Update leaders ──────────────────────────────────────────
             new_leader_opinion: Dict[str, float] = {}
             for leader in leaders:
-                neighbors  = grid_neighbors.get(leader.agent_id, [])
-                neigh_ops  = [leader_opinion[n] for n in neighbors]
-                new_leader_opinion[leader.agent_id] = algorithm.update_leader(
-                    current_opinion   = leader_opinion[leader.agent_id],
-                    neighbor_opinions = neigh_ops,
-                    llm_output        = llm_outputs.get(leader.agent_id, 0),
-                    epsilon           = current_eps,
-                )
+                real_score = algorithm.get_leader_real_score(leader.agent_id, day)
+                if real_score is not None:
+                    # Data-grounded variant: use actual recorded opinion directly
+                    new_leader_opinion[leader.agent_id] = real_score
+                else:
+                    neighbors  = grid_neighbors.get(leader.agent_id, [])
+                    neigh_ops  = [leader_opinion[n] for n in neighbors]
+                    new_leader_opinion[leader.agent_id] = algorithm.update_leader(
+                        current_opinion   = leader_opinion[leader.agent_id],
+                        neighbor_opinions = neigh_ops,
+                        llm_output        = llm_outputs.get(leader.agent_id, 0),
+                        epsilon           = current_eps,
+                    )
 
             # ── G. Write memory entries ────────────────────────────────────
             if algorithm.uses_memory:

@@ -18,12 +18,14 @@ from backend.algorithm.memory_only       import MemoryOnly
 from backend.algorithm.custom            import CustomVariant
 from backend.algorithm.bounded_confidence import BoundedConfidence
 from backend.algorithm.bc_sir            import BoundedConfidenceSIR
+from backend.algorithm.real_leaders      import RealLeaders
 from backend.algorithm.base              import AbstractAlgorithm
 
 VARIANT_REGISTRY: dict[str, type[AbstractAlgorithm]] = {
     "mafdm_m3b":          MAFDM_M3b,
     "memory_only":        MemoryOnly,
     "fde_llm":            FDE_LLM,
+    "real_leaders":       RealLeaders,
     "bounded_confidence": BoundedConfidence,
     "bc_sir":             BoundedConfidenceSIR,
     "custom":             CustomVariant,

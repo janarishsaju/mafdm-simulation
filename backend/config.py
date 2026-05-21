@@ -152,6 +152,19 @@ VARIANT_DEFAULTS: Dict[str, VariantMeta] = {
         ),
     ),
 
+    "real_leaders": VariantMeta(
+        id="real_leaders",
+        name="Real Leaders — Data-Grounded (No LLM)",
+        description=(
+            "Leaders use actual recorded attitude scores from the dataset CSV — no LLM calls. "
+            "Followers simulated via M3b CA + SIR dynamics driven by real leader signals. "
+            "Isolates follower dynamics from leader simulation error. Runs instantly."
+        ),
+        has_memory=False,
+        has_dynamic_eps=True,
+        default_config=AlgorithmConfig(),
+    ),
+
     "bc_sir": VariantMeta(
         id="bc_sir",
         name="Bounded Confidence + SIR (No LLM)",

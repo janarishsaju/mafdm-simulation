@@ -169,6 +169,18 @@ class AbstractAlgorithm(ABC):
         Defaults to True — override to False for pure CA variants."""
         return True
 
+    # ── Dataset injection hook --------------------------------------------------
+
+    def inject_dataset(self, dataset) -> None:
+        """Called once by the runner before the day loop starts.
+        Override to receive dataset-level data (e.g. real leader scores)."""
+        pass
+
+    def get_leader_real_score(self, agent_id: str, day: int) -> Optional[float]:
+        """Return a forced opinion for this leader on this day, bypassing CA+LLM.
+        Return None to use the normal update_leader path."""
+        return None
+
     # ── Anchor memory enrichment hook -------------------------------------------
 
     def enrich_anchor_memory(

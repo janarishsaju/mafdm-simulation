@@ -268,6 +268,65 @@ def load_dataset(
     # Attach helper that the runner needs for Moore neighbours
     dataset._leader_grid_neighbors = {aid: get_moore_neighbors(aid) for aid in leader_ids}
 
+    # Build real leader score lookups for the RealLeaders variant.
+    #
+    # _leader_real_scores  : {agent_id: {day: score}}   — per-day individual scores
+    # _leader_phase_scores : {agent_id: {phase: score}} — per-phase individual avg
+    # _leader_phase_avgs   : {phase: score}             — group avg per phase
+
+    real_scores:  Dict[str, Dict[int, float]] = {}
+    phase_accum:  Dict[str, Dict[str, list]]  = {}  # {agent_id: {phase: [scores]}}
+    all_phase_accum: Dict[str, list]          = {}  # {phase: [scores]}
+    day_accum:    Dict[int, list]             = {}  # {day: [scores]} for group daily avg
+
+    for _, row in leaders_df.iterrows():
+        aid   = row["agent_id"]
+        day   = int(row[col_day])
+        scr   = float(row[col_score])
+        phase = str(row[col_phase])
+
+        # day-level lookup
+        if aid not in real_scores:
+            real_scores[aid] = {}
+        real_scores[aid][day] = scr
+
+        # phase-level per-leader accumulator
+        if aid not in phase_accum:
+            phase_accum[aid] = {}
+        phase_accum[aid].setdefault(phase, []).append(scr)
+
+        # phase-level group accumulator
+        all_phase_accum.setdefault(phase, []).append(scr)
+
+        # day-level group accumulator (for per-day group average)
+        day_accum.setdefault(day, []).append(scr)
+
+    # Collapse lists → averages
+    leader_phase_scores: Dict[str, Dict[str, float]] = {
+        aid: {ph: sum(vals) / len(vals) for ph, vals in ph_map.items()}
+        for aid, ph_map in phase_accum.items()
+    }
+    leader_phase_avgs: Dict[str, float] = {
+        ph: sum(vals) / len(vals) for ph, vals in all_phase_accum.items()
+    }
+
+    # Per-day group average (interpolated for missing days in sim window)
+    sim_days = list(range(sim_start, sim_end + 1))
+    raw_daily = {d: sum(v) / len(v) for d, v in day_accum.items()}
+    daily_series = pd.Series(
+        {d: raw_daily.get(d, float("nan")) for d in sim_days},
+        index=sim_days, dtype=float,
+    )
+    daily_series = daily_series.interpolate(method="linear", limit_direction="both")
+    leader_daily_avgs: Dict[int, float] = {
+        int(d): float(v) for d, v in daily_series.items()
+    }
+
+    dataset._leader_real_scores   = real_scores
+    dataset._leader_phase_scores  = leader_phase_scores
+    dataset._leader_phase_avgs    = leader_phase_avgs
+    dataset._leader_daily_avgs    = leader_daily_avgs
+
     return dataset
 
 
