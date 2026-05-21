@@ -276,7 +276,12 @@ class SimulationRunner:
                                 new_leader_opinion[leader.agent_id]
                                 - old_leader_opinion[leader.agent_id], 3
                             )
-                    last_anchor = resolution_day
+
+            # ── Resolution anchor tracking (all variants, not just memory) ─
+            # last_anchor must be set to resolution_day regardless of uses_memory
+            # so that is_recovery flips True on the next day (ε phase switch).
+            if resolution_day is not None and day == resolution_day:
+                last_anchor = resolution_day
 
             leader_opinion = new_leader_opinion
             leader_avg = float(np.mean(list(leader_opinion.values())))
