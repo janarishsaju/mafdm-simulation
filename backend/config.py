@@ -165,6 +165,21 @@ VARIANT_DEFAULTS: Dict[str, VariantMeta] = {
         default_config=AlgorithmConfig(),
     ),
 
+    "real_leaders_networked": VariantMeta(
+        id="real_leaders_networked",
+        name="Real Leader Scores → Actual Connections",
+        description=(
+            "Same real leader scores as the base variant, but follower connections "
+            "are derived from actual data: subreddit co-participation (272), "
+            "content-theme matching (71), theme fallback (16), and Reddit thread "
+            "co-commenting via Arctic Shift scraping (3). "
+            "Isolates the effect of network structure on follower dynamics. Runs instantly."
+        ),
+        has_memory=False,
+        has_dynamic_eps=True,
+        default_config=AlgorithmConfig(),
+    ),
+
     "bc_sir": VariantMeta(
         id="bc_sir",
         name="Bounded Confidence + SIR (No LLM)",
