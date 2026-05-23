@@ -3,6 +3,7 @@ import DataPanel       from "./components/DataPanel.jsx";
 import AlgorithmPanel  from "./components/AlgorithmPanel.jsx";
 import SimulationPanel from "./components/SimulationPanel.jsx";
 import ResultsPanel    from "./components/ResultsPanel.jsx";
+import PolarityPanel   from "./components/PolarityPanel.jsx";
 import { FlaskConical } from "lucide-react";
 
 const API = "/api";
@@ -21,6 +22,12 @@ export default function App() {
 
   // ── Demo mode ──────────────────────────────────────────────────────────────
   const [liveRunsEnabled, setLiveRunsEnabled] = useState(false);
+
+  // ── Polarity analysis state ────────────────────────────────────────────────
+  const [polarityStatus,   setPolarityStatus]   = useState("idle");  // "idle"|"running"|"done"|"error"
+  const [polarityPhases,   setPolarityPhases]   = useState([]);       // [{run, status}]
+  const [polarityResult,   setPolarityResult]   = useState(null);
+  const [polarityError,    setPolarityError]    = useState(null);
 
   // ── Simulation state ───────────────────────────────────────────────────────
   const [status,     setStatus]     = useState("idle");
@@ -74,6 +81,10 @@ export default function App() {
     const v = variants.find((x) => x.id === id);
     if (v) setConfig(v.default_config);
     resetSimState();
+    setPolarityStatus("idle");
+    setPolarityPhases([]);
+    setPolarityResult(null);
+    setPolarityError(null);
   }
 
   function handleSelectDataset(id) {
@@ -86,7 +97,10 @@ export default function App() {
 
   // ── Check if current selection is cached ──────────────────────────────────
   const isCached = cachedCombos.some(
-    (c) => c.dataset_id === datasetId && c.variant_id === variantId
+    (c) => c.dataset_id === datasetId && c.variant_id === variantId && !c.is_polarity
+  );
+  const polarityIsCached = cachedCombos.some(
+    (c) => c.dataset_id === datasetId && c.variant_id === variantId && c.is_polarity
   );
 
   // ── Run simulation ─────────────────────────────────────────────────────────
@@ -169,6 +183,76 @@ export default function App() {
     }
   }, [datasetId, variantId, config, anchorOverrides]);
 
+  // ── Polarity analysis run ─────────────────────────────────────────────────
+  const handlePolarityRun = useCallback(async () => {
+    setPolarityStatus("running");
+    setPolarityPhases([]);
+    setPolarityResult(null);
+    setPolarityError(null);
+
+    try {
+      const response = await fetch(`${API}/simulate/polarity`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          dataset_id:       datasetId,
+          variant_id:       variantId,
+          config,
+          anchor_overrides: Object.keys(anchorOverrides).length > 0 ? anchorOverrides : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${response.status}`);
+      }
+
+      const reader  = response.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          let event;
+          try { event = JSON.parse(raw); } catch { continue; }
+
+          switch (event.type) {
+            case "polarity_phase":
+              setPolarityPhases((prev) => {
+                const next = prev.filter((p) => p.run !== event.data.run);
+                return [...next, event.data];
+              });
+              break;
+            case "polarity_evaluation":
+              setPolarityResult(event.data);
+              setPolarityStatus("done");
+              refreshCache();
+              break;
+            case "error":
+              setPolarityError(event.data?.message || "Unknown error");
+              setPolarityStatus("error");
+              break;
+            default:
+              break;
+          }
+        }
+      }
+    } catch (err) {
+      setPolarityError(err.message);
+      setPolarityStatus("error");
+    }
+  }, [datasetId, variantId, config, anchorOverrides]);
+
   // ── Clear cache & re-run ──────────────────────────────────────────────────
   const handleClearAndRerun = useCallback(async () => {
     await fetch(`${API}/cache/${datasetId}/${variantId}`, { method: "DELETE" });
@@ -242,9 +326,12 @@ export default function App() {
             onConfigChange   = {setConfig}
             onRun            = {() => handleRun(false)}
             onClearAndRerun  = {handleClearAndRerun}
+            onPolarityRun    = {handlePolarityRun}
             running          = {status === "running"}
-            disabled         = {status === "running"}
+            polarityRunning  = {polarityStatus === "running"}
+            disabled         = {status === "running" || polarityStatus === "running"}
             isCached         = {isCached}
+            polarityIsCached = {polarityIsCached}
             liveRunsEnabled  = {liveRunsEnabled}
           />
         </div>
@@ -296,6 +383,16 @@ export default function App() {
             evaluation   = {evaluation}
             variantName  = {selectedVariant?.name || variantId}
             datasetName  = {selectedDataset?.name || datasetId}
+          />
+
+          <PolarityPanel
+            status      = {polarityStatus}
+            phases      = {polarityPhases}
+            result      = {polarityResult}
+            errorMsg    = {polarityError}
+            variantName = {selectedVariant?.name || variantId}
+            variantId   = {variantId}
+            datasetName = {selectedDataset?.name || datasetId}
           />
 
         </div>

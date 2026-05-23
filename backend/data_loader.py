@@ -328,6 +328,40 @@ def load_dataset(
     dataset._leader_phase_avgs    = leader_phase_avgs
     dataset._leader_daily_avgs    = leader_daily_avgs
 
+    # ── Polarity classification ────────────────────────────────────────────────
+    # Classify each leader as "positive" or "negative" based on their mean
+    # attitude score across all their posts in the CSV.
+    leader_mean: Dict[str, float] = {
+        aid: sum(day_scores.values()) / len(day_scores)
+        for aid, day_scores in real_scores.items()
+        if day_scores
+    }
+    leader_polarity_map: Dict[str, str] = {
+        aid: ("positive" if m > 0.0 else "negative")
+        for aid, m in leader_mean.items()
+    }
+
+    def _polarity_daily_avgs(target: str) -> Dict[int, float]:
+        """Group daily average for one polarity subset (interpolated)."""
+        accum: Dict[int, list] = {}
+        for aid, day_scores in real_scores.items():
+            if leader_polarity_map.get(aid) == target:
+                for d, scr in day_scores.items():
+                    accum.setdefault(d, []).append(scr)
+        if not accum:
+            return {d: 0.0 for d in sim_days}
+        raw = {d: sum(v) / len(v) for d, v in accum.items()}
+        s = pd.Series(
+            {d: raw.get(d, float("nan")) for d in sim_days},
+            index=sim_days, dtype=float,
+        )
+        s = s.interpolate(method="linear", limit_direction="both")
+        return {int(d): float(v) for d, v in s.items()}
+
+    dataset._leader_polarity_map   = leader_polarity_map
+    dataset._leader_daily_avgs_pos = _polarity_daily_avgs("positive")
+    dataset._leader_daily_avgs_neg = _polarity_daily_avgs("negative")
+
     return dataset
 
 

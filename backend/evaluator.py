@@ -34,6 +34,33 @@ from backend.simulation_runner import DayResult
 # ---------------------------------------------------------------------------
 
 @dataclass
+class PolarityResult:
+    """Metrics and chart for a 3-run polarity comparison."""
+    pearson_all:  float
+    pearson_pos:  float
+    pearson_neg:  float
+    dtw_all:      float
+    dtw_pos:      float
+    dtw_neg:      float
+    n_pos:        int     # number of positive-classified leaders
+    n_neg:        int     # number of negative-classified leaders
+    chart_b64:    str
+
+    def to_dict(self) -> dict:
+        return {
+            "pearson_all": round(self.pearson_all, 4),
+            "pearson_pos": round(self.pearson_pos, 4),
+            "pearson_neg": round(self.pearson_neg, 4),
+            "dtw_all":     round(self.dtw_all, 4),
+            "dtw_pos":     round(self.dtw_pos, 4),
+            "dtw_neg":     round(self.dtw_neg, 4),
+            "n_pos":       self.n_pos,
+            "n_neg":       self.n_neg,
+            "chart_b64":   self.chart_b64,
+        }
+
+
+@dataclass
 class EvaluationResult:
     pearson:         float
     p_value:         float
@@ -118,7 +145,8 @@ def evaluate(
         pearson           = float(corr),
         dtw               = dtw_dist,
         anchor_days       = anchor_days or [],
-        real_leaders_mode = (variant_id == "real_leaders"),
+        real_leaders_mode = variant_id in ("real_leaders", "real_leaders_networked"),
+        variant_id        = variant_id,
     )
 
     return EvaluationResult(
@@ -133,6 +161,63 @@ def evaluate(
         days              = days,
         follower_smoothed = follower_smoothed.tolist(),
         real_smoothed     = real_arr.tolist(),
+    )
+
+
+def evaluate_polarity(
+    results_all:    List[DayResult],
+    results_pos:    List[DayResult],
+    results_neg:    List[DayResult],
+    real_curve:     Dict[int, float],
+    variant_name:   str,
+    variant_id:     str,
+    event_label:    str,
+    anchor_days:    Optional[List[int]],
+    polarity_counts: Dict[str, int],     # {"positive": N, "negative": M}
+) -> PolarityResult:
+    """Build a 4-curve polarity comparison chart and compute per-group metrics."""
+    days     = [r.day for r in results_all]
+    days_arr = np.array(days, dtype=float)
+    real_arr = np.array([real_curve.get(d, float("nan")) for d in days])
+
+    sm_all = _gaussian_filter1d(np.array([r.follower_avg for r in results_all]), sigma=1.5)
+    sm_pos = _gaussian_filter1d(np.array([r.follower_avg for r in results_pos]), sigma=1.5)
+    sm_neg = _gaussian_filter1d(np.array([r.follower_avg for r in results_neg]), sigma=1.5)
+
+    r_all, _ = _pearsonr(sm_all, real_arr)
+    r_pos, _ = _pearsonr(sm_pos, real_arr)
+    r_neg, _ = _pearsonr(sm_neg, real_arr)
+
+    d_all = _dtw_distance(sm_all, real_arr)
+    d_pos = _dtw_distance(sm_pos, real_arr)
+    d_neg = _dtw_distance(sm_neg, real_arr)
+
+    chart_b64 = _build_polarity_chart(
+        days_arr     = days_arr,
+        sm_all       = sm_all,
+        sm_pos       = sm_pos,
+        sm_neg       = sm_neg,
+        real_arr     = real_arr,
+        r_all=float(r_all), r_pos=float(r_pos), r_neg=float(r_neg),
+        d_all=d_all,        d_pos=d_pos,        d_neg=d_neg,
+        variant_name = variant_name,
+        variant_id   = variant_id,
+        event_label  = event_label,
+        anchor_days  = anchor_days or [],
+        n_pos        = polarity_counts.get("positive", 0),
+        n_neg        = polarity_counts.get("negative", 0),
+    )
+
+    return PolarityResult(
+        pearson_all = float(r_all),
+        pearson_pos = float(r_pos),
+        pearson_neg = float(r_neg),
+        dtw_all     = d_all,
+        dtw_pos     = d_pos,
+        dtw_neg     = d_neg,
+        n_pos       = polarity_counts.get("positive", 0),
+        n_neg       = polarity_counts.get("negative", 0),
+        chart_b64   = chart_b64,
     )
 
 
@@ -191,6 +276,7 @@ def _build_chart(
     dtw:               float,
     anchor_days:       List[int],
     real_leaders_mode: bool = False,
+    variant_id:        str  = "",
 ) -> str:
     """Build the 2-panel comparison chart and return it as a base64 PNG string."""
     sim_start = int(days_arr[0])
@@ -252,6 +338,64 @@ def _build_chart(
         color="#1F3964", fontweight="bold",
     )
 
+    # Help text — Real Leaders variants only
+    if real_leaders_mode:
+        if variant_id == "real_leaders_networked":
+            help_text = (
+                "How to read:\n"
+                "Blue  = Real leader scores (group daily avg, interpolated from CSV)\n"
+                "Orange = Simulated follower curve — CA+SIR with actual derived connections\n"
+                "Red   = Observed real follower curve (ground truth)\n"
+                "● Connections: subreddit co-participation (272) · content-theme (71)\n"
+                "  theme-fallback (16) · Arctic Shift thread-scraped (3)\n"
+                "● No LLM calls · No memory diary"
+            )
+        else:
+            help_text = (
+                "How to read:\n"
+                "Blue  = Real leader scores (group daily avg, interpolated from CSV)\n"
+                "Orange = Simulated follower curve — CA+SIR dynamics driven by real leader scores\n"
+                "Red   = Observed real follower curve (ground truth)\n"
+                "● Follower connections: random (3 leaders + 2 followers per agent)\n"
+                "● No LLM calls · No memory diary"
+            )
+        ax.text(
+            0.02, 0.97,
+            help_text,
+            transform=ax.transAxes,
+            fontsize=7.2, va="top", ha="left",
+            bbox=dict(boxstyle="round,pad=0.45", facecolor="#EFF6FF",
+                      edgecolor="#BFDBFE", alpha=0.93),
+            color="#1E3A5F",
+        )
+
+        # Annotate the Days 16-18 leader dip (social cascade effect)
+        day17_idx = int(np.argmin(np.abs(days_arr - 17)))
+        if 0 <= day17_idx < len(leader_raw):
+            y17 = float(leader_raw[day17_idx])
+            ax.annotate(
+                "Days 16–18: Social cascade\n"
+                "Post-pause coverage by journalists &\n"
+                "pharmacists sustains J&J hesitancy.\n"
+                "Market share fell 20%→9% of daily doses.",
+                xy=(float(days_arr[day17_idx]), y17),
+                xytext=(11.0, -0.80),
+                fontsize=6.8,
+                color="#4A235A",
+                bbox=dict(
+                    boxstyle="round,pad=0.38",
+                    facecolor="#FEF9FF",
+                    edgecolor="#D7BDE2",
+                    alpha=0.93,
+                ),
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color="#8E44AD",
+                    lw=1.3,
+                    connectionstyle="arc3,rad=-0.2",
+                ),
+            )
+
     ax.set_ylim(-1.15, 1.15)
     ax.set_xlim(sim_start, sim_end)
     ax.set_yticks([-1.0, -0.5, 0.0, 0.5, 1.0])
@@ -292,6 +436,88 @@ def _build_chart(
 
     plt.tight_layout(h_pad=0.5)
 
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode("utf-8")
+
+
+def _build_polarity_chart(
+    days_arr:    np.ndarray,
+    sm_all:      np.ndarray,
+    sm_pos:      np.ndarray,
+    sm_neg:      np.ndarray,
+    real_arr:    np.ndarray,
+    r_all: float, r_pos: float, r_neg: float,
+    d_all: float, d_pos: float, d_neg: float,
+    variant_name: str,
+    variant_id:   str,
+    event_label:  str,
+    anchor_days:  List[int],
+    n_pos: int,
+    n_neg: int,
+) -> str:
+    """Two-panel polarity chart (follower curves + leader distribution bar) as base64 PNG."""
+    _REAL_LEADERS_VARIANTS = {"real_leaders", "real_leaders_networked"}
+    is_real_leaders = variant_id in _REAL_LEADERS_VARIANTS
+    leader_signal_note = (
+        "Leader signal: actual CSV scores (real recorded attitudes)"
+        if is_real_leaders else
+        f"Leader signal: {variant_name} simulation (LLM/CA driven)"
+    )
+
+    sim_start = int(days_arr[0])
+    sim_end   = int(days_arr[-1])
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+    fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
+
+    if anchor_days:
+        sorted_anchors = sorted(anchor_days)
+        boundaries = [sim_start] + sorted_anchors + [sim_end]
+        band_colors = ["#E8F4E8", "#FDECEA", "#E8F0FE", "#FFF8E1"]
+        for i in range(len(boundaries) - 1):
+            ax.axvspan(boundaries[i], boundaries[i + 1],
+                       color=band_colors[i % len(band_colors)], alpha=0.35, zorder=0)
+        for d in sorted_anchors:
+            ax.axvline(d, color="#C00000" if d == sorted_anchors[0] else "#217346",
+                       linewidth=1.5, linestyle="--", alpha=0.8, zorder=5)
+
+    ax.axhline(0, color="#888888", linewidth=0.9, zorder=1)
+
+    ax.plot(days_arr, real_arr, color="#1F3964", linewidth=2.5, zorder=6,
+            label="Real observed follower curve (ground truth)")
+    ax.plot(days_arr, sm_all, color="#C55A11", linewidth=2.2, linestyle="--", zorder=4,
+            label=f"Simulated followers — all leaders (full mix)  r={r_all:+.3f}, DTW={d_all:.3f}")
+    ax.plot(days_arr, sm_pos, color="#16A34A", linewidth=2.5, zorder=5,
+            label=f"Simulated followers — positive leaders only ({n_pos})  r={r_pos:+.3f}, DTW={d_pos:.3f}")
+    ax.plot(days_arr, sm_neg, color="#DC2626", linewidth=2.5, zorder=5,
+            label=f"Simulated followers — negative leaders only ({n_neg})  r={r_neg:+.3f}, DTW={d_neg:.3f}")
+
+    ax.set_ylim(-1.15, 1.15)
+    ax.set_xlim(sim_start, sim_end)
+    ax.set_yticks([-1.0, -0.5, 0.0, 0.5, 1.0])
+    ax.set_yticklabels(["−1.0\n(Very Neg)", "−0.5", "0.0\n(Neutral)", "+0.5", "+1.0\n(Very Pos)"],
+                       fontsize=8, color="#444")
+    ax.set_ylabel("Simulated Follower Attitude", fontsize=9, color="#333")
+    ax.set_xlabel(f"Days Relative to Crisis Event  ({event_label})", fontsize=9, color="#333")
+    ax.xaxis.set_major_locator(plt.MultipleLocator(5))
+    ax.tick_params(axis="x", labelsize=8.5, colors="#555")
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color("#CCCCCC")
+    ax.spines["bottom"].set_color("#CCCCCC")
+    ax.grid(axis="y", alpha=0.2, linewidth=0.6)
+    ax.legend(fontsize=8.5, framealpha=0.9, edgecolor="#CCCCCC", loc="lower left")
+    ax.set_title(
+        f"Follower Polarity Analysis — {variant_name}\n"
+        f"{event_label}   |   {leader_signal_note}",
+        fontsize=9, fontweight="bold", color="#1F3964", pad=6, loc="left",
+    )
+
+    plt.tight_layout()
     buf = io.BytesIO()
     plt.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)

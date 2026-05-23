@@ -47,7 +47,13 @@ class RealLeaders(MAFDM_M3b):
 
     def inject_dataset(self, dataset) -> None:
         """Receive real leader daily averages and initial opinions from the dataset."""
-        self._daily_avgs      = getattr(dataset, "_leader_daily_avgs", {})
+        pf = getattr(self, "polarity_filter", "all")
+        if pf == "positive":
+            self._daily_avgs = getattr(dataset, "_leader_daily_avgs_pos", {}) or getattr(dataset, "_leader_daily_avgs", {})
+        elif pf == "negative":
+            self._daily_avgs = getattr(dataset, "_leader_daily_avgs_neg", {}) or getattr(dataset, "_leader_daily_avgs", {})
+        else:
+            self._daily_avgs = getattr(dataset, "_leader_daily_avgs", {})
         self._initial_opinion = {ldr.agent_id: ldr.opinion for ldr in dataset.leaders}
 
     # ── Real score lookup -------------------------------------------------------

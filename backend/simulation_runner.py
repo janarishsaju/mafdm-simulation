@@ -83,10 +83,11 @@ class SimulationRunner:
 
     def run(
         self,
-        dataset:     LoadedDataset,
-        algorithm:   AbstractAlgorithm,
-        config:      AlgorithmConfig,
-        on_progress: Optional[Callable[[DayResult], None]] = None,
+        dataset:          LoadedDataset,
+        algorithm:        AbstractAlgorithm,
+        config:           AlgorithmConfig,
+        on_progress:      Optional[Callable[[DayResult], None]] = None,
+        polarity_filter:  str = "all",   # "all" | "positive" | "negative"
     ) -> List[DayResult]:
         """
         Execute the full simulation and return a list of DayResult (one per day).
@@ -102,6 +103,9 @@ class SimulationRunner:
             List of DayResult, one per simulation day.
         """
         # Give the algorithm access to dataset-level data (e.g. real leader scores)
+        # Polarity filter is set on the algorithm so inject_dataset() can pick
+        # the correct per-polarity daily averages (Real Leaders variants).
+        algorithm.polarity_filter = polarity_filter
         algorithm.inject_dataset(dataset)
 
         # ── Unpack dataset ────────────────────────────────────────────────
@@ -132,6 +136,25 @@ class SimulationRunner:
         # ── Mutable opinion tables ─────────────────────────────────────────
         leader_opinion:   Dict[str, float] = {a.agent_id: a.opinion for a in leaders}
         follower_opinion: Dict[str, float] = {f.agent_id: f.opinion for f in followers}
+
+        # ── Polarity filter — which leaders are silenced in follower updates ─
+        # For Real Leaders variants the daily-avg selection already handles the
+        # polarity signal; silencing ensures the opposite group contributes 0
+        # to followers' connection lists regardless.
+        # For LLM/CA variants, leaders are classified by initial opinion.
+        polarity_map: Dict[str, str] = getattr(dataset, "_leader_polarity_map", None)
+        if polarity_map is None:
+            polarity_map = {
+                aid: ("positive" if leader_opinion[aid] > 0.0 else "negative")
+                for aid in leader_ids
+            }
+        if polarity_filter == "all":
+            silenced_leaders: set = set()
+        else:
+            silenced_leaders = {
+                aid for aid, pol in polarity_map.items()
+                if pol != polarity_filter
+            }
 
         # ── Runner state ──────────────────────────────────────────────────
         last_anchor:     Optional[int] = None
@@ -284,13 +307,20 @@ class SimulationRunner:
                 last_anchor = resolution_day
 
             leader_opinion = new_leader_opinion
-            leader_avg = float(np.mean(list(leader_opinion.values())))
+            # Leader avg: show only the active polarity group's signal
+            if silenced_leaders:
+                active_ops = [v for aid, v in leader_opinion.items()
+                              if aid not in silenced_leaders]
+                leader_avg = float(np.mean(active_ops)) if active_ops else 0.0
+            else:
+                leader_avg = float(np.mean(list(leader_opinion.values())))
 
             # ── H. Update followers ────────────────────────────────────────
             new_follower_opinion: Dict[str, float] = {}
             for follower in followers:
                 conn_ops = [
-                    leader_opinion.get(cid, follower_opinion.get(cid, 0.0))
+                    (0.0 if cid in silenced_leaders else
+                     leader_opinion.get(cid, follower_opinion.get(cid, 0.0)))
                     for cid in follower_connections[follower.agent_id]
                 ]
                 new_follower_opinion[follower.agent_id] = algorithm.update_follower(

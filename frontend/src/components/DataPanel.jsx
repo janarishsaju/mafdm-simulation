@@ -18,7 +18,7 @@ export default function DataPanel({
     .map(Number)
     .sort((a, b) => a - b);
 
-  const isRealLeaders = variantId === "real_leaders";
+  const isRealLeaders = variantId === "real_leaders" || variantId === "real_leaders_networked";
 
   function handleAnchorEdit(day, value) {
     onAnchorChange({ ...anchorOverrides, [String(day)]: value });
@@ -129,6 +129,11 @@ export default function DataPanel({
             }}>
               <strong>Blurb not used as input.</strong> Only anchor day numbers
               are used — to time the ε phase switch. No LLM reads these blurbs.
+              {variantId === "real_leaders_networked" && (
+                <span style={{ display: "block", marginTop: 4 }}>
+                  <strong>Connections:</strong> subreddit co-participation (272) · content-theme (71) · theme-fallback (16) · thread-scraped (3).
+                </span>
+              )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {sortedDays.map((day) => (

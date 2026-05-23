@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Settings, ChevronDown, ChevronUp, Play } from "lucide-react";
+import { Settings, ChevronDown, ChevronUp, Play, GitFork } from "lucide-react";
 
 const CONFIG_GROUPS = [
   {
@@ -67,9 +67,12 @@ export default function AlgorithmPanel({
   onConfigChange,
   onRun,
   onClearAndRerun,
+  onPolarityRun,
   running,
+  polarityRunning,
   disabled,
   isCached,
+  polarityIsCached,
   liveRunsEnabled,
 }) {
   const [showConfig, setShowConfig] = useState(false);
@@ -217,6 +220,49 @@ export default function AlgorithmPanel({
           Re-run Fresh (calls OpenAI)
         </button>
       )}
+
+      {/* Polarity cache badge */}
+      {polarityIsCached && !polarityRunning && (
+        <div style={{
+          background: "#F5F3FF",
+          border: "1px solid #DDD6FE",
+          borderRadius: 7,
+          padding: "0.5rem 0.75rem",
+          fontSize: "0.78rem",
+          color: "#6D28D9",
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginTop: 6,
+        }}>
+          <span>&#9889;</span> Polarity cached — loads instantly
+        </div>
+      )}
+
+      {/* Polarity Analysis button */}
+      <button
+        className="btn-outline"
+        style={{
+          width: "100%",
+          marginTop: 6,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          borderColor: polarityRunning ? "#7C3AED" : polarityIsCached ? "#7C3AED" : undefined,
+          color: polarityRunning ? "#7C3AED" : polarityIsCached ? "#7C3AED" : undefined,
+        }}
+        onClick={onPolarityRun}
+        disabled={disabled || running || polarityRunning}
+      >
+        <GitFork size={13} />
+        {polarityRunning
+          ? "Running polarity analysis…"
+          : polarityIsCached
+          ? "Load Polarity (cached)"
+          : "Run Polarity Analysis"}
+      </button>
 
       {/* Demo notice — shown when live runs are disabled */}
       {!liveRunsEnabled && (

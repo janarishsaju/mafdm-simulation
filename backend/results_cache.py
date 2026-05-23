@@ -20,8 +20,9 @@ Workflow:
 
 from __future__ import annotations
 
+import json
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -60,6 +61,11 @@ CACHE_COLUMNS = [
 def _path(dataset_id: str, variant_id: str) -> str:
     os.makedirs(_RESULTS_DIR, exist_ok=True)
     return os.path.join(_RESULTS_DIR, f"{dataset_id}__{variant_id}.csv")
+
+
+def _polarity_path(dataset_id: str, variant_id: str) -> str:
+    os.makedirs(_RESULTS_DIR, exist_ok=True)
+    return os.path.join(_RESULTS_DIR, f"{dataset_id}__{variant_id}__polarity.json")
 
 
 # ---------------------------------------------------------------------------
@@ -130,23 +136,65 @@ def clear_cache(dataset_id: str, variant_id: str) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
+# Polarity cache (JSON — stores the complete PolarityResult dict)
+# ---------------------------------------------------------------------------
+
+def has_polarity_cache(dataset_id: str, variant_id: str) -> bool:
+    return os.path.isfile(_polarity_path(dataset_id, variant_id))
+
+
+def load_polarity_cache(dataset_id: str, variant_id: str) -> Optional[Dict]:
+    p = _polarity_path(dataset_id, variant_id)
+    if not os.path.isfile(p):
+        return None
+    with open(p, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_polarity_cache(dataset_id: str, variant_id: str, result_dict: Dict) -> str:
+    p = _polarity_path(dataset_id, variant_id)
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(result_dict, f)
+    return p
+
+
+def clear_polarity_cache(dataset_id: str, variant_id: str) -> bool:
+    p = _polarity_path(dataset_id, variant_id)
+    if os.path.isfile(p):
+        os.remove(p)
+        return True
+    return False
+
+
 def list_cache() -> List[dict]:
     """
-    Return all cached dataset-variant combinations.
+    Return all cached dataset-variant combinations (simulation + polarity).
     Used by the API to tell the frontend which results are already available.
+    Polarity entries have is_polarity=True.
     """
     if not os.path.isdir(_RESULTS_DIR):
         return []
     items = []
     for fname in sorted(os.listdir(_RESULTS_DIR)):
-        if not fname.endswith(".csv"):
-            continue
-        stem = fname[:-4]          # strip .csv
-        parts = stem.split("__")
-        if len(parts) == 2:
-            items.append({
-                "dataset_id": parts[0],
-                "variant_id": parts[1],
-                "filename":   fname,
-            })
+        if fname.endswith(".csv"):
+            stem  = fname[:-4]
+            parts = stem.split("__")
+            if len(parts) == 2:
+                items.append({
+                    "dataset_id": parts[0],
+                    "variant_id": parts[1],
+                    "filename":   fname,
+                    "is_polarity": False,
+                })
+        elif fname.endswith("__polarity.json"):
+            stem  = fname[: -len("__polarity.json")]
+            parts = stem.split("__")
+            if len(parts) == 2:
+                items.append({
+                    "dataset_id": parts[0],
+                    "variant_id": parts[1],
+                    "filename":   fname,
+                    "is_polarity": True,
+                })
     return items
